@@ -1,6 +1,6 @@
 ---
 title: "Tidy Spatial Data Analysis"
-author: "@edzerpebesma"
+author: "Edzer Pebesma @edzerpebesma github.com/edzer"
 date: "rstudio::conf, Feb 2, 2018"
 output:
   ioslides_presentation:
@@ -22,7 +22,7 @@ knitr::opts_chunk$set(echo = FALSE, collapse = TRUE)
 - Tidy: `sf`, `dplyr` & `ggplot2`
 - Raster, arrays, spatial data cubes
 
-## Some personal history, I
+## Some personal context, I
 
 - studied physical geography, PhD in spatial statistics
 - now teach Geoinformatics in Muenster, Germany
@@ -85,7 +85,13 @@ Pairs/sets:
 - (typed) `EMPTY`: think of as `NA` (missing) geometry
 - `GEOMETRYCOLLECTION`: mix of anything
 
-- implemented as geometry list-column in `data.frame` or `tibble`
+## `sf`
+
+> - The `sf` package stores simple feature geometries **as a list-column in a** `data.frame` **or** `tibble`
+
+> - And we have stickers.
+
+> - How does it work?
 
 -------------------
 
@@ -106,20 +112,6 @@ Pairs/sets:
 ## `sfg` : geometry for one feature
 
 <img src="classes.png" width="800" />
-
-## `sfc` and `sf` objects
-
-How do we maintain feature sets, i.e. collections of records with geometries and other properties?
-
-- `sfg` object (e.g. with class `c("XY", "POINT", "sfg")`) hold a single feature's geometry
-- `sfc` objects are classed list-columns of `sfg` objects, with attributes `bbox`, `crs` and `precision` 
-- `sf` objects subclass `data.frame` or `tbl_df`,  with attributes `sf_column` and `agr`
-
-
-## Operations on attribute + geometry
-
-- `st_join`, join tables based on a binary spatial predicate
-- `summarise`, `aggregate`: aggregates attribute, unions geometry
 
 --------
 ```{r sfc, eval = TRUE, echo = TRUE}
@@ -143,10 +135,13 @@ st_is_simple(st_point(0:1))
 
 - `sf` spatial objects are `data.frame`s (or `tibble`s)
 - you can always un-`sf`, and work with `tbl_df` or `data.frame` having an `sfc` list-column
-- `sf` methods of tidyverse have:
--  `filter`, `arrange`, `distinct`, `group_by`, `ungroup`, `mutate`, `select` have
-sticky geometry 
--  `summarise` unions geometry by group (or alltogether)
+- `sf` methods for `filter`, `arrange`, `distinct`, `group_by`, `ungroup`, `mutate`, `select` have sticky geometry 
+- `st_join` joins tables based on a spatial predicate
+-  `summarise` unions geometry by group (or altogether)
+
+<img src="summ.png" width="800" />
+
+```
 
 -------
 ```{r tidy1, echo = TRUE}
@@ -219,7 +214,23 @@ tif = system.file("tif/L7_ETMs.tif", package = "stars")
 plot(st_stars(tif), main = paste("Band", 1:6), col = grey(1:9/10))
 ```
 
-## 
+## Take-home message
+
+We did:
+
+> - `sf`: tidy spatial data, vector data
+> - hex sticker
+
+Upcoming:
+
+> - tidy raster data
+> - sf cheat sheet
+
+Thanks to:
+
+> - rstudio for invitating
+> - the `#rspatial` community
+> - R Consortium for funding sf and stars
 
 <!--
 ```{r w, echo = FALSE, fig.width = 5, fig.height = 2.5}
@@ -228,4 +239,12 @@ data(wrld_simpl, package = "maptools")
 w = st_as_sf(wrld_simpl)
 plot(w[1])
 ```
+## `sfc` and `sf` objects
+
+How do we maintain feature sets, i.e. collections of records with geometries and other properties?
+
+- `sfg` objects hold a single feature's geometry
+- `sfc` objects are list-columns with `sfg` geometries; they have attributes `bbox`, `crs` and `precision` 
+- `sf` are `data.frame` or `tbl_df` with a `sfc` list-column; they have attributes `sf_column` and `agr`
+
 -->

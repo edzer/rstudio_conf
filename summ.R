@@ -1,0 +1,6 @@
+library(sf)
+demo(nc)
+png(file = "summ.png", width = 800, height = 200)
+par(mfrow = c(1,2), mar = rep(0,4))
+plot(st_geometry(nc))
+plot(st_union(st_geometry(nc)))
