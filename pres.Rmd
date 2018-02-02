@@ -1,6 +1,6 @@
 ---
 title: "Tidy Spatial Data Analysis"
-author: "Edzer Pebesma @edzerpebesma github.com/edzer"
+author: "Edzer Pebesma, @edzerpebesma, github.com/edzer"
 date: "rstudio::conf, Feb 2, 2018"
 output:
   ioslides_presentation:
@@ -13,6 +13,11 @@ output:
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, collapse = TRUE)
 ```
+
+-----
+
+<img src="10northcarolina-master768.jpg" width="400" /> NYT, 2018/1/9
+<img src="2016_election_map.png "        width="400" /> xkcd.com
 
 ## Overview
 
@@ -29,9 +34,9 @@ knitr::opts_chunk$set(echo = FALSE, collapse = TRUE)
 - wrote lots of C code in the 90's
 - wrote R packages in the 00/10's: gstat, sp, spacetime, trajectories, ...
 
-<img src="asdar.jpg" width="130" />
+<img src="asdar.jpg" width="180" />
 
-- recently developed an interest in working with measurement `units`
+- recently developed an interest in working with measurement `units` (in R)
 
 -----
 
@@ -74,22 +79,20 @@ Pairs/sets:
 
 - quantities: `distance`
 - predicates:  `intersects`, `within`, `contains`, `covers`, `covered_by`, `crosses`, `touches`, `overlaps`, `equals`, `disjoint`, all other DE-9IM 
-- derived geometries: `intersection`\*, `difference`\*, `union`, `sym_difference`
-- \* : also for n-ary sets
-- $O(N^2)$ behaviour is avoided by using spatial indexes
+- new geometries: `intersection`, `difference`, `union`, `sym_difference`
 
 ## Intersection special cases
 
 <img src="empty.png" width="720" />
 
-- (typed) `EMPTY`: think of as `NA` (missing) geometry
-- `GEOMETRYCOLLECTION`: mix of anything
+- (typed) `EMPTY`: think of as missing (`NA`) geometry
+- `GEOMETRYCOLLECTION`: _single_ feature geometry with mix of anything
 
-## `sf`
+## Package `sf`
 
-> - The `sf` package stores simple feature geometries **as a list-column in a** `data.frame` **or** `tibble`
+> - `sf` stores simple feature geometries **as a list-column** 
 
-> - And we have stickers.
+> - It does that in `sf` objects, _extending_ `data.frame` **or** `tibble`
 
 > - How does it work?
 
@@ -99,7 +102,7 @@ Pairs/sets:
 
 -------------------
 
-<img src="nc2_.png" width="720" />
+<img src="nc4.png" width="720" />
 
 -------------------
 
@@ -107,7 +110,8 @@ Pairs/sets:
 
 -------------------
 
-<img src="nc4.png" width="720" />
+<img src="nc2_.png" width="720" />
+
 
 ## `sfg` : geometry for one feature
 
@@ -155,8 +159,10 @@ read_sf(gpkg) %>% select(1:3, 12)
 ```{r tidy2, echo = TRUE}
 read_sf(gpkg) %>% select(1:5,12) %>% st_transform(2264) # NC state plane, us foot
 ```
--------
-```{r tidy3, echo = TRUE}
+
+## `geom_sf`
+
+```{r tidy3, echo = TRUE, fig.height=3}
 library(ggplot2) # install_github("tidyverse/ggplot2")
 nc <- read_sf(gpkg) %>% st_transform(2264)
 ggplot() + geom_sf(data = nc) + aes(fill = BIR74) +
@@ -180,10 +186,6 @@ suppressPackageStartupMessages(library(mapview))
 nc %>% mapview(zcol = "BIR74", legend = TRUE, col.regions = sf.colors)
 ```
 
-## Geometry predicates and operations, `st_join`
-
-show mini figures for intersection / union / difference
-
 ## quantities
 
 ```{r, eval=TRUE, echo = TRUE}
@@ -205,7 +207,20 @@ pts =  st_sfc(st_point(c(0,90)), st_point(c(0,70)), st_point(c(60,70)),
 st_distance(pol, pts) %>% set_units(km)
 ```
 
-## Raster and vector data cubes: `stars`
+## What about raster data?
+
+- package `raster` is powerful, and works well with pipes
+- simple features don't scale for raster / imagery data
+- (long) time series on features do neither
+
+Package `github.com/r-spatial/stars` for:
+
+- raster and vector data cubes (arrays)
+- take on raster limitations, e.g. 4D+ rasters (band, time)
+- take on data sets larger than local disk
+- R Consortium project planned to finish 2018 Q2
+
+-------
 
 ```{r,eval=TRUE,echo=TRUE,fig.width=5,fig.height=3.5}
 suppressPackageStartupMessages(library(stars))
@@ -214,23 +229,21 @@ tif = system.file("tif/L7_ETMs.tif", package = "stars")
 plot(st_stars(tif), main = paste("Band", 1:6), col = grey(1:9/10))
 ```
 
-## Take-home message
+## Conclusions
 
-We did:
+- `sf` provides tidy spatial analysis, for vector data
+- there are 6 package vignettes for further reading
 
-> - `sf`: tidy spatial data, vector data
-> - hex sticker
+Work in progress:
 
-Upcoming:
-
-> - tidy raster data
-> - sf cheat sheet
+> - tidy raster data and space/time array data
 
 Thanks to:
 
-> - rstudio for invitating
 > - the `#rspatial` community
 > - R Consortium for funding sf and stars
+
+Join the BoF meeting: Today, 5:30-6:30, Pier room, 3rd floor
 
 <!--
 ```{r w, echo = FALSE, fig.width = 5, fig.height = 2.5}
