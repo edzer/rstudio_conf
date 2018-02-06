@@ -344,6 +344,18 @@ a + c
 
 </article></slide><slide class=""><hgroup><h2></h2></hgroup><article >
 
+</article></slide><slide class=""><hgroup><h2>and we can do this</h2></hgroup><article  id="and-we-can-do-this">
+
+<pre class = 'prettyprint lang-r'>install_symbolic_unit(&quot;apples&quot;)
+install_symbolic_unit(&quot;oranges&quot;)
+install_conversion_constant(&quot;apples&quot;, &quot;oranges&quot;, 1.5)
+set_units(5, oranges) + set_units(5, apples)
+## 12.5 oranges</pre>
+
+<p>(but it is not trivial to get right).</p>
+
+</article></slide><slide class=""><hgroup><h2></h2></hgroup><article >
+
 <pre class = 'prettyprint lang-r'>library(sf)
 ## Linking to GEOS 3.5.1, GDAL 2.2.1, proj.4 4.9.3
 demo(nc, echo = FALSE, ask = FALSE)
@@ -428,6 +440,10 @@ sum(a2$BIR74) / sum(nc$BIR74)
 <li><em>aggregate</em>: attribute is an aggregation over the geometry</li>
 </ul>
 
+<ul class = 'build'>
+<li>function <code>st_aggregate</code> and the <code>sf</code> method of <code>summarise</code> set the <code>agr</code> field to <em>aggregate</em></li>
+</ul>
+
 </article></slide><slide class=""><hgroup><h2></h2></hgroup><article >
 
 <pre class = 'prettyprint lang-r'>st_agr(nc)</pre>
@@ -451,7 +467,8 @@ z = st_intersection(nc[&quot;NAME&quot;], pt)</pre>
 
 <ul>
 <li>units of measurement deserve (more) attention in data science</li>
-<li>relationship between attribute and geometry is neglected in most spatial information systems</li>
+<li>Flater&#39;s paper proposes a better way to deal with unitless units, which might be an opportunity to absorb (parts of) ontologies</li>
+<li>the relationship between attribute and geometry is neglected in most spatial information systems (See also <a href='https://dx.doi.org/10.1080/13658816.2016.1151520' title=''>Scheider et al.</a>)</li>
 <li>for subsampling, resampling, downscaling, upscaling etc. one needs to know whether the variable in question is extensive or intensive</li>
 <li>units of measure may help in this regard</li>
 </ul></article></slide>

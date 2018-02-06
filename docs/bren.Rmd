@@ -1,0 +1,304 @@
+---
+title: "Spatial data in R: new directions"
+author: "Edzer Pebesma"
+date: "UCSB Environmental Informatics, Feb 6, 2018"
+output:
+  ioslides_presentation:
+    logo: animation.gif
+    css: pres.css  
+    smaller: true
+  slidy_presentation: default
+  beamer_presentation: default
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, collapse = TRUE)
+```
+
+-----
+
+<img src="10northcarolina-master768.jpg" width="400" /> [NYT](https://www.nytimes.com/2018/01/09/us/north-carolina-gerrymander.html), 2018/1/9
+<img src="2016_election_map.png "        width="400" /> [xkcd.com](https://xkcd.com/1939/)
+
+## Overview
+
+- Spatial data in R
+- Simple features, the `sf` R package
+- Geometrical operations
+- Tidy: `sf`, `dplyr` & `ggplot2`
+- Raster, arrays, spatial data cubes
+
+## Some personal context, I
+
+- studied physical geography, PhD in spatial statistics
+- now teach Geoinformatics in Muenster, Germany
+- wrote lots of C code in the 90's
+- wrote R packages in the 00/10's: gstat, sp, spacetime, trajectories, ...
+
+<img src="asdar.jpg" width="180" />
+
+- recently developed an interest in working with measurement `units` (in R)
+
+-----
+
+<img src="spverse.png" width="720" />
+
+## What makes spatial data challenging? 
+
+> - The Earth is a sphere/spheroid/potato*
+> - coordinates consist of two or three numbers that _loose most of their meaning when considered individually_
+> - the most common form is Longitude, Latitude (LL) pairs
+> - from LL data, `stats::dist` will not give you distances
+> - maps and screens are flat, and hence can only show _projected_ data
+> - projected distances are distorted, and possibly areas, shapes, directions and shortest paths too
+> - the meaning of a LL coordinate depends on the geographic _datum_ (e.g., WGS84, ETRS89, NAD27 etc)
+> - a _datum_ is unlikely important when mapping continents, but it is when drones try to deliver pizza's
+
+## Simple features
+
+- **feature**: abstraction of real world phenomena (type or instance); has a geometry and other attributes (properties)
+- **simple feature**: feature with all geometric attributes described piecewise by straight line or planar interpolation between sets of points (no curves)
+<img src="sf.png" width="200" />
+- represent geometry by _points_, _lines_ or _polygons_, or _collections_ thereof
+- a formal standard (ISO, OGC) since 2004
+- supported by OSGeo libraries GEOS and GDAL
+- adopted by GeoJSON, GeoSPARQL
+- has well-known text (WKT) and binary (WKB) encodings
+- WKB used by spatial databases (PostGIS, MariaDB, SQLite, ...)
+- standard specifies a number of topological metrics, predicates and operations
+
+## Operations on geometries:
+
+Single:
+
+- logical predicates:  `is_valid`, `is_simple`, `is_empty`
+- quantities: `length`, `area`
+- `dimension`: 0 = point(s), 1 = linear, 2 = surface
+- derived  geometries: `buffer`, `centroid`, `boundary`, `convex_hull`, `simplify`, `linemerge`, `polygonize`, `node`, `point_on_surface`, `triangulate`
+
+Pairs/sets:
+
+- quantities: `distance`
+- predicates:  `intersects`, `within`, `contains`, `covers`, `covered_by`, `crosses`, `touches`, `overlaps`, `equals`, `disjoint`, all other DE-9IM 
+- new geometries: `intersection`, `difference`, `union`, `sym_difference`
+
+## Intersection special cases
+
+<img src="empty.png" width="720" />
+
+- (typed) `EMPTY`: think of as missing (`NA`) geometry
+- `GEOMETRYCOLLECTION`: _single_ feature geometry with mix of anything
+
+## Package `sf`
+
+> - `sf` stores simple feature geometries **as a list-column** 
+
+> - It does that in `sf` objects, _extending_ `data.frame` **or** `tibble`
+
+> - How does it work?
+
+-------------------
+
+<img src="nc1.png" width="720" />
+
+-------------------
+
+<img src="nc4.png" width="720" />
+
+-------------------
+
+<img src="nc3.png" width="720" />
+
+-------------------
+
+<img src="nc2_.png" width="720" />
+
+
+## `sfg` : geometry for one feature
+
+<img src="classes.png" width="800" />
+
+--------
+```{r sfc, eval = TRUE, echo = TRUE}
+library(sf)
+```
+
+<img src="sf_deps.png" width="720" />
+
+## Package `sf` features
+
+- `sf` objects extend `data.frame` or `tbl_df` with a geometry list-column
+- fast (C++) WKB $\Longleftrightarrow$ R conversion, used for I/O with libraries and databases
+- spatial indexes created on-the-fly to scale up geometrical predicates (intersects) and operations (intersection)
+- simple and small API
+- functions/methods start with `st_`, as in 
+```{r example,echo=TRUE}
+st_is_simple(st_point(0:1))
+```
+
+## `sf` & `tidyverse`
+
+- `sf` spatial objects are `data.frame`s (or `tibble`s)
+- you can always un-`sf`, and work with `tbl_df` or `data.frame` having an `sfc` list-column
+- `sf` methods for `filter`, `arrange`, `distinct`, `group_by`, `ungroup`, `mutate`, `select` have sticky geometry 
+- `st_join` joins tables based on a spatial predicate
+-  `summarise` unions geometry by group (or altogether)
+
+<img src="summ.png" width="800" />
+
+```
+
+-------
+```{r tidy1, echo = TRUE}
+suppressPackageStartupMessages(library(dplyr))
+gpkg = system.file("gpkg/nc.gpkg", package="sf")
+options(pillar.sigfig = 3)
+read_sf(gpkg) %>% select(1:3, 12)
+```
+
+-------
+```{r tidy2, echo = TRUE}
+read_sf(gpkg) %>% select(1:5,12) %>% st_transform(2264) # NC state plane, us foot
+```
+
+## `geom_sf`
+
+```{r tidy3, echo = TRUE, fig.height=3}
+library(ggplot2) # install_github("tidyverse/ggplot2")
+nc <- read_sf(gpkg) %>% st_transform(2264)
+ggplot() + geom_sf(data = nc) + aes(fill = BIR74) +
+  theme(panel.grid.major = element_line(color = "white")) +
+  scale_fill_gradientn(colors = sf.colors(20))
+```
+
+-------
+```{r tidy4, echo = TRUE}
+library(tidyr)
+nc2 <- nc %>% select(SID74, SID79) %>% gather(VAR, SID, -geom)
+ggplot() + geom_sf(data = nc2, aes(fill = SID)) + facet_wrap(~VAR, ncol = 1) +
+  scale_y_continuous(breaks = 34:36) +
+  scale_fill_gradientn(colors = sf.colors(20)) +
+  theme(panel.grid.major = element_line(color = "white"))
+```
+
+-------
+```{r mapview, echo = TRUE}
+suppressPackageStartupMessages(library(mapview))
+nc %>% mapview(zcol = "BIR74", legend = TRUE, col.regions = sf.colors)
+```
+
+## quantities
+
+```{r, eval=TRUE, echo = TRUE}
+library(sf)
+suppressPackageStartupMessages(library(units))
+
+pts = rbind(c(0,80), c(120,80), c(240,80), c(0,80))
+pol = st_sfc(st_polygon(list(pts)), crs = "+proj=longlat")
+
+pol %>% st_area %>% set_units(km^2)
+
+# Equidistant Cylindrical (Plate Carrée):
+pol %>% st_transform("+proj=eqc") %>% st_area
+
+pol %>% st_set_crs(NA) %>% st_area
+
+pts =  st_sfc(st_point(c(0,90)), st_point(c(0,70)), st_point(c(60,70)), 
+              crs = "+proj=longlat")
+st_distance(pol, pts) %>% set_units(km)
+```
+
+## What about raster data?
+
+- package `raster` is powerful, stable, and works well with pipes
+- simple features don't scale for raster / imagery data
+- (long) time series on features do neither
+
+Package `github.com/r-spatial/stars` for:
+
+- raster and vector data cubes (arrays)
+- take on raster limitations, e.g. 4D+ rasters (band, time)
+- take on data sets larger than local disk
+- R Consortium project planned to finish 2018 Q2
+
+-------
+
+```{r,eval=TRUE,echo=TRUE,fig.width=5,fig.height=3.5}
+library(stars)
+# http://github.com/r-spatial/stars: not yet on CRAN
+tif = system.file("tif/L7_ETMs.tif", package = "stars")
+(img = st_stars(tif))
+```
+
+---
+
+```{r,eval=TRUE,echo=TRUE,fig.width=5,fig.height=3.5}
+plot(img, main = paste("Band", 1:6))
+```
+
+----
+
+```{r,eval=TRUE,echo=TRUE}
+setwd("/home/edzer/data/sentinel")
+x = st_stars("SENTINEL2_L1C:/vsizip/S2A_MSIL1C_20170314T104011_N0204_R008_T32ULC_20170314T104411.SAFE.zip/S2A_MSIL1C_20170314T104011_N0204_R008_T32ULC_20170314T104411.SAFE/MTD_MSIL1C.xml:10m:EPSG_32632")
+names(x) = "S2A_L1C"
+x
+```
+---
+
+```{r,eval=TRUE,echo=FALSE,fig.width=6,fig.height=6}
+plot(x)
+```
+
+## So far,
+
+- `stars` does everything locally, and in memory
+- `raster` scales up to local hard drive, by caching memory, and won't do band+time
+- `stars` will scale by having proxy objects in memory, pointing to an image collection in another R instance, interfaced through http/REST (`httr`, `plumber`)
+- this should scale to distributed architectures
+- what should proxy objects have? (pixels at lower res? only granule/tile outlines?)
+
+--- 
+
+```{r echo=FALSE}
+set.seed(131)
+library(sf)
+m = rbind(c(0,0), c(1,0), c(1,1), c(0,1), c(0,0))
+p = st_polygon(list(m))
+n = 500
+l = vector("list", n)
+for (i in 1:n)
+  l[[i]] = p + 10 * runif(2)
+s = st_sfc(l)
+sf = st_sf(s)
+i = st_intersection(sf) # all intersections
+plot(i["n.overlaps"])
+```
+
+## `stars` status
+
+Can currently:
+
+- read, subset attr, subset dimensions, plot (efficiently)
+- sort out time from NetCDF files (read through GDAL)
+- deal with units
+
+To do soon:
+
+- implement web-service interface, define proxy objects
+- find useful interactions with the data proxied
+- write rasters/arrays back to disk
+- apply functions to array dimensions
+- implement generic filtering capability
+
+## Conclusions
+
+- `sf` provides tidy spatial analysis, for vector data
+- there are 6 package vignettes for further reading
+- tidy raster and vector data cubes (space/time array data) are WIP (`stars` - stay tuned!)
+- all involvement of any kind is always appreciated!
+
+Thanks to:
+
+- the `#rspatial` community
+- R Consortium for supporting sf and stars development
+- rstudio for funding this trip!

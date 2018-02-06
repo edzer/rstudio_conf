@@ -1,0 +1,297 @@
+---
+title: "(How) can units of measurement improve spatial data science?"
+author: "Edzer Pebesma"
+date: "UCSB Thinkspatial Brown Bag, February 6, 2018"
+output: 
+  ioslides_presentation:
+    logo: units.jpg
+    css: units.css
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, collapse = TRUE, error = TRUE)
+```
+
+## Overview
+
+- Motivation
+- What is BIPM, GUM, VIM
+- review of quantities, units, and values (according to VIM)
+- software
+- spatial data science
+
+---
+
+<img src="classes.png" width="1000" />
+
+---
+
+General frustrations I have:
+
+- we can describe (simple) features geometries pretty well, and we can describe feature attributes pretty well, but not how the two relate (exceptions maybe: coverage, and CF conventions)
+
+General fears I have:
+
+- data science and citizen data science imply that everyone now tries to do anything, without spatial experts involved, and with varying motivations
+
+- data scientists like to think longitude and latitude are just two more variables
+
+---
+
+Lack of unit checking in practice:
+```{r,echo=TRUE}
+(apples = c(5,8,12,3))
+(oranges = c(4,2,8,11))
+apples + oranges # meaningless?
+(speed1 = 55) # mile/hr
+(speed2 = 34.5) # km/hr
+speed1 + speed2 # wrong:
+with(mtcars[1:3,], mpg + cyl) # wrong and meaningless:
+```
+
+## BIPM, VIM, GUM
+
+- BIPM: _Bureau Internationale des Poids et Mesures_
+- manages _SI_, the International System of Units (briefly: what is a meter, what is a kg, and so on) 
+
+The _Joint Committee for Guides in Metrology_ (JCGM) has responsibility for the following two publications:
+
+- Guide to the Expression of Uncertainty in Measurement (known as the **GUM**); and
+- International Vocabulary of Metrology – Basic and General Concepts and Associated Terms (known as the **VIM**).
+
+(The following 7 slides are copied from the VIM)
+
+## What is a quantity?
+
+- **quantity**: property of a phenomenon, body, or substance, where the property has a magnitude that can be expressed as a number and a reference
+
+- NOTE2: A reference can be a measurement unit, a measurement procedure, a reference material, or a combination of such.
+
+- **system of quantities**: set of quantities together with a set of noncontradictory equations relating those quantities
+
+- **base quantity** quantity in a conventionally chosen subset of a
+given system of quantities, where no subset quantity can be expressed in terms of the others
+
+----
+
+| Base quantity | Symbol | SI base unit | Symbol   |
+| -----------|--------|----------|------|
+| length        | $l,x,r,$ etc.| meter | m |
+| mass          | $m$ | kilogram | kg |
+| time, duration | $t$ | second | s |
+| electric current| $I, i$ | ampere | A |
+| thermodynamic temperature | $T$ | kelvin | K |
+| amount of substance | $n$ | mole | mol |
+| luminous intensity |  $I_v$ | candela | cd |
+
+
+## quantities
+
+- **derived quantity**: quantity, in a system of quantities, defined in
+terms of the base quantities of that system 
+
+- **(quantity) dimension**:
+expression of the dependence of a quantity on the
+base quantities of a system of quantities as a
+product of powers of factors corresponding to the
+base quantities, omitting any numerical factor 
+
+- **quantity of dimension one**
+(dimensionless quantity):
+quantity for which all the exponents of the factors
+corresponding to the base quantities in its
+quantity dimension are zero 
+
+## units
+
+- **measurement unit**:
+real scalar quantity, defined and adopted by
+convention, with which any other quantity of the
+same kind can be compared to express the ratio of
+the two quantities as a number 
+
+- **base unit**: measurement unit that is adopted by convention
+for a base quantity (e.g., m, kg)
+
+NOTE 3: For number of entities, the number one,
+symbol 1, can be regarded as a base unit in any system
+of units. 
+
+## values
+
+- **quantity value** (or value):
+number and reference together expressing magnitude
+of a quantity, e.g. $15 ~ m^2$ which is short for $15 \times 1 m^2$.
+
+## measurement, measurement error
+
+- **measured quantity value** (measured value):
+quantity value representing a measurement result
+
+-  **random measurement error**
+component of measurement error that in replicate
+measurements varies in an unpredictable manner 
+
+- ... and so on
+
+
+## computing with units
+
+the dimension of a quantity Q is denoted by
+
+$$ \mbox{dim}~ Q = L ^\alpha M^\beta T^\gamma I^\delta Θ^\epsilon N^\zeta J^\eta 
+$$
+
+where the exponents $\alpha,...,\eta$, named
+dimensional exponents, are positive, negative, or zero. 
+
+- two _values_ can be compared if and only if their dimensional exponents are identical
+- for adding/subtraction, units may need to be converted (e.g., km/h to m/s)
+- the dimension of a product (ratio) of two values is the sum (difference) of their exponents
+
+## software for units
+
+shall
+
+- contain a database of units, derived units, prefixes and so on
+- provide functions to verify two values are compatible
+- provide functions to convert values, if they are compatible
+- help users avoid making mistakes, related to units and dimensions
+
+Examples: 
+
+- udunits (UNIDATA): C, actively supported
+- Unified Code for Units of Measure (UCUM), preferred by OGC (but why?)
+- R package `units` (which uses udunits)
+- python, C++ (boost), Julia, many more...
+
+## Examples
+```{r echo=TRUE}
+suppressPackageStartupMessages(library(units))
+(a = set_units(1, m/s)) 
+(b = set_units(1, km/h))
+a + b
+b + a
+a * b
+(c = set_units(10, kg))
+a + c # You can't be serious...
+```
+
+## However, 
+
+```{r echo = TRUE}
+a = set_units(15, g/g)
+(b = set_units(33)) # unitless
+a + b
+c = set_units(12, m/m) # or rad
+a + c
+```
+
+----
+
+[David Flater](https://doi.org/10.1016/j.csi.2017.10.002) proposes to extend unitless units to keep track which units were cancelled out, or of what it is a count, to catch such cases:
+
+<img src="flater.png" width="1000" />
+
+---
+
+## and we can do this
+
+```{r echo=TRUE}
+install_symbolic_unit("apples")
+install_symbolic_unit("oranges")
+install_conversion_constant("apples", "oranges", 1.5)
+set_units(5, oranges) + set_units(5, apples)
+```
+
+(but it is not trivial to get right).
+
+---
+
+```{r echo=TRUE}
+library(sf)
+demo(nc, echo = FALSE, ask = FALSE)
+nc[1:2,] %>% st_transform(2264) %>% st_area # NC state plane, us_ft
+nc[1:2,] %>% st_transform(2264) %>% st_area %>% set_units(m^2)
+st_area(nc[1:2,]) # ellipsoidal surface, NAD27
+```
+
+---
+```{r echo=TRUE}
+nc <- nc %>% st_transform(2264)
+g = st_make_grid(nc, n = c(20,10))
+plot(st_geometry(nc), border = "#ff5555", lwd = 2)
+plot(g, add = TRUE, border = "#0000bb")
+```
+
+---
+
+```{r echo=TRUE}
+st_agr(nc) = c("BIR74" = "constant")
+a1 = st_interpolate_aw(nc["BIR74"], g, extensive = FALSE)
+sum(a1$BIR74) / sum(nc$BIR74) # not close to one: spatially intensive
+a2 = st_interpolate_aw(nc["BIR74"], g, extensive = TRUE)
+sum(a2$BIR74) / sum(nc$BIR74)
+```
+
+
+----
+
+```{r echo=FALSE}
+a1$BIR74_int = a1$BIR74
+a1$BIR74_ext = a2$BIR74
+suppressPackageStartupMessages(library(tidyverse))
+a <- a1 %>% select(BIR74_int, BIR74_ext) %>% gather(VAR, BIR74, -geometry)
+ggplot() + geom_sf(data = a, aes(fill = BIR74)) + facet_wrap(~VAR, ncol = 1) +
+  scale_fill_gradientn(colors = sf.colors(20)) +
+  theme(panel.grid.major = element_line(color = "white"))
+```
+
+## Can measurement units help discriminate intensive from extensive?
+
+This is only relevant when distributing, so for 1- or 2-dimensional, flat geometries.
+
+Speculating:
+
+- always intensive: temperature, color, density, ...
+- always extensive: volume, mass, energy, heat capacity, ...
+- dimensionless, but not a ratio $\Rightarrow$ count: extensive
+- anything extensive divided by area: intensive
+
+## However:
+
+- length: total lenght of roads in a polygon: extensive
+- length: altitude: intensive
+
+Height is again extensive when measured along vertical geometries.
+
+---
+```{r echo=TRUE, collapse=FALSE}
+st_agr(nc)
+```
+
+`agr`: attribute-geometry-relationship:
+
+- _constant_: attribute is constant throughout geometry
+- _identity_: attribute identifies geometry (and hence is constant)
+- _aggregate_: attribute is an aggregation over the geometry
+
+> - function `st_aggregate` and the `sf` method of `summarise` set the `agr` field to _aggregate_
+
+---
+```{r echo=TRUE, collapse=FALSE}
+st_agr(nc)
+pt = st_sfc(st_point(c(1260982, 994957)), crs = st_crs(nc))
+x = st_intersection(nc["BIR79"], pt)
+y = st_intersection(nc["BIR74"], pt) # forged
+z = st_intersection(nc["NAME"], pt)
+```
+
+
+## Concluding
+
+- units of measurement deserve (more) attention in data science
+- Flater's paper proposes a better way to deal with unitless units, which might be an opportunity to absorb (parts of) ontologies
+- the relationship between attribute and geometry is neglected in most spatial information systems (See also [Scheider et al.](https://dx.doi.org/10.1080/13658816.2016.1151520))
+- for subsampling, resampling, downscaling, upscaling etc. one needs to know whether the variable in question is extensive or intensive
+- units of measure may help in this regard
