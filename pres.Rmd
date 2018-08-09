@@ -128,8 +128,8 @@ library(sf)
 
 - `sf` objects extend `data.frame` or `tbl_df` with a geometry list-column
 - fast (C++) WKB $\Longleftrightarrow$ R conversion, used for I/O with libraries and databases
-- spatial indexes created on-the-fly to scale up geometrical predicates (intersects) and operations (intersection)
-- simple and small API
+- spatial indexes created on-the-fly to scale up geometrical predicates (intersects) and operations (intersection), and selections (nearest feature)
+- simple and relatively small API
 - functions/methods start with `st_`, as in 
 ```{r example,echo=TRUE}
 st_is_simple(st_point(0:1))
@@ -140,7 +140,7 @@ st_is_simple(st_point(0:1))
 - `sf` spatial objects are `data.frame`s (or `tibble`s)
 - you can always un-`sf`, and work with `tbl_df` or `data.frame` having an `sfc` list-column
 - `sf` methods for `filter`, `arrange`, `distinct`, `group_by`, `ungroup`, `mutate`, `select` have sticky geometry 
-- `st_join` joins tables based on a spatial predicate
+- `st_join` joins tables based on a spatial predicate, or user-defined function
 -  `summarise` unions geometry by group (or altogether)
 
 <img src="summ.png" width="800" />
@@ -157,7 +157,7 @@ read_sf(gpkg) %>% select(1:3, 12)
 
 -------
 ```{r tidy2, echo = TRUE}
-read_sf(gpkg) %>% select(1:5,12) %>% st_transform(2264) # NC state plane, us foot
+read_sf(gpkg) %>% select(1:4,12) %>% st_transform(2264) # NC state plane, us foot
 ```
 
 ## `geom_sf`
@@ -190,7 +190,7 @@ nc %>% mapview(zcol = "BIR74", legend = TRUE, col.regions = sf.colors)
 
 ```{r, eval=TRUE, echo = TRUE}
 library(sf)
-suppressPackageStartupMessages(library(units))
+library(units)
 
 pts = rbind(c(0,80), c(120,80), c(240,80), c(0,80))
 pol = st_sfc(st_polygon(list(pts)), crs = "+proj=longlat")
@@ -199,7 +199,6 @@ pol %>% st_area %>% set_units(km^2)
 
 # Equidistant Cylindrical (Plate Carrée):
 pol %>% st_transform("+proj=eqc") %>% st_area
-
 pol %>% st_set_crs(NA) %>% st_area
 
 pts =  st_sfc(st_point(c(0,90)), st_point(c(0,70)), st_point(c(60,70)), 
@@ -216,17 +215,19 @@ st_distance(pol, pts) %>% set_units(km)
 Package `github.com/r-spatial/stars` for:
 
 - raster and vector data cubes (arrays)
-- take on raster limitations, e.g. 4D+ rasters (band, time)
-- take on data sets larger than local disk
-- R Consortium project planned to finish 2018 Q2
+- take on certain raster limitations: 
+    - 4D+ rasters (band, time)
+    - data sets larger than local disk
+- non-raster array data, such as O-D matrix by time and age class   
+- R Consortium funded project, planned to finish 2018 Q3/4
 
 -------
 
 ```{r,eval=TRUE,echo=TRUE,fig.width=5,fig.height=3.5}
-suppressPackageStartupMessages(library(stars))
-# http://github.com/r-spatial/stars: not yet on CRAN
+library(stars)
+# http://github.com/r-spatial/stars ; also on CRAN
 tif = system.file("tif/L7_ETMs.tif", package = "stars")
-plot(st_stars(tif), main = paste("Band", 1:6), col = grey(1:9/10))
+plot(read_stars(tif), main = paste("Band", 1:6), col = grey(1:9/10))
 ```
 
 ## Conclusions
@@ -243,7 +244,13 @@ Thanks to:
 > - the `#rspatial` community
 > - R Consortium for funding sf and stars
 
-Join the BoF meeting: Today, 5:30-6:30, Pier room, 3rd floor
+Further reading:
+
+Edzer Pebesma, 2018. Simple Features for R: Standardized Support for Spatial Vector Data.
+The R Journal (2018) 10:1, pages 439-446.
+https://journal.r-project.org/archive/2018/RJ-2018-009/index.html
+
+https://www.r-spatial.org/ for stars blogs, and many other things (contributions welcome!)
 
 <!--
 ```{r w, echo = FALSE, fig.width = 5, fig.height = 2.5}
