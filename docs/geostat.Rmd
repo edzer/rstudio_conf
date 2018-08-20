@@ -1,0 +1,331 @@
+---
+title: "New R spatial packages"
+author: "Edzer Pebesma, @edzerpebesma, github.com/edzer"
+date: "GEOSTAT Pruhonice, Aug 19, 2018 (based on: rstudio::conf, 2/2/2018)"
+output:
+  ioslides_presentation:
+    logo: animation.gif
+    css: pres.css  
+    smaller: true
+  slidy_presentation: default
+  beamer_presentation: default
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, collapse = TRUE)
+```
+
+-----
+
+<img src="10northcarolina-master768.jpg" width="400" /> [NYT](https://www.nytimes.com/2018/01/09/us/north-carolina-gerrymander.html), 2018/1/9
+<img src="2016_election_map.png "        width="400" /> [xkcd.com](https://xkcd.com/1939/)
+
+----
+
+<blockquote class="twitter-tweet" data-lang="en"><p lang="en" dir="ltr">Me, making maps but not really knowing anything about map projections: <a href="https://t.co/IwBiZegxSf">pic.twitter.com/IwBiZegxSf</a></p>&mdash; Julia Silge (@juliasilge) <a href="https://twitter.com/juliasilge/status/1030134567087177728?ref_src=twsrc%5Etfw">August 16, 2018</a></blockquote>
+<script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+
+
+## Overview
+
+- Spatial data in R
+- Simple features, the `sf` R package
+- Geometrical operations
+- Tidy: `sf`, `dplyr` & `ggplot2`
+- Raster, arrays, spatial data cubes (stars)
+
+## Some personal context, I
+
+- studied physical geography, PhD in spatial statistics
+- now teach Geoinformatics in Muenster, Germany
+- wrote lots of C code in the 90's
+- wrote R packages in the 00/10's: gstat, sp, spacetime, trajectories, ...
+
+<img src="asdar.jpg" width="180" />
+
+- recently developed an interest in working with measurement `units` (in R)
+
+-----
+
+<img src="spverse.png" width="720" />
+
+## What makes spatial data challenging? 
+
+> - The Earth is a sphere/spheroid/potato*
+> - coordinates consist of two or three numbers that _loose most of their meaning when considered individually_
+> - the most common form is Longitude, Latitude (LL) pairs
+> - from LL data, `stats::dist` will not give you distances
+> - maps and screens are flat, and hence can only show _projected_ data
+> - projected distances are distorted, and possibly areas, shapes, directions and shortest paths too
+> - the meaning of a LL coordinate depends on the geographic _datum_ (e.g., WGS84, ETRS89, NAD27 etc)
+> - a _datum_ is unlikely important when mapping continents, but it is when drones try to deliver pizza's
+
+## Simple features
+
+- **feature**: abstraction of real world phenomena (type or instance); has a geometry and other attributes (properties)
+- **simple feature**: feature with all geometric attributes described piecewise by straight line or planar interpolation between sets of points (no curves)
+<img src="sf.png" width="200" />
+- represent geometry by _points_, _lines_ or _polygons_, or _collections_ thereof
+- a formal standard (ISO, OGC) since 2004
+- supported by OSGeo libraries GEOS and GDAL
+- adopted by GeoJSON, GeoSPARQL
+- has well-known text (WKT) and binary (WKB) encodings
+- WKB used by spatial databases (PostGIS, MariaDB, SQLite, ...)
+- standard specifies a number of topological metrics, predicates and operations
+
+## Operations on geometries:
+
+Single:
+
+- logical predicates:  `is_valid`, `is_simple`, `is_empty`
+- quantities: `length`, `area`
+- `dimension`: 0 = point(s), 1 = linear, 2 = surface
+- derived  geometries: `buffer`, `centroid`, `boundary`, `convex_hull`, `simplify`, `linemerge`, `polygonize`, `node`, `point_on_surface`, `triangulate`
+
+Pairs/sets:
+
+- quantities: `distance`
+- predicates:  `intersects`, `within`, `contains`, `covers`, `covered_by`, `crosses`, `touches`, `overlaps`, `equals`, `disjoint`, all other DE-9IM 
+- new geometries: `intersection`, `difference`, `union`, `sym_difference`
+
+## Intersection special cases
+
+<img src="empty.png" width="720" />
+
+- (typed) `EMPTY`: think of as missing (`NA`) geometry
+- `GEOMETRYCOLLECTION`: _single_ feature geometry with mix of anything
+
+## Package `sf`
+
+> - `sf` stores simple feature geometries **as a list-column** 
+
+> - It does that in `sf` objects, _extending_ `data.frame` **or** `tibble`
+
+> - How does it work?
+
+-------------------
+
+<img src="nc1.png" width="720" />
+
+-------------------
+
+<img src="nc4.png" width="720" />
+
+-------------------
+
+<img src="nc3.png" width="720" />
+
+-------------------
+
+<img src="nc2_.png" width="720" />
+
+
+## `sfg` : geometry for one feature
+
+<img src="classes.png" width="800" />
+
+--------
+```{r sfc, eval = TRUE, echo = TRUE}
+library(sf)
+```
+
+<img src="sf_deps.png" width="720" />
+
+## Package `sf` features
+
+- `sf` objects extend `data.frame` or `tbl_df` with a geometry list-column
+- fast (C++) WKB $\Longleftrightarrow$ R conversion, used for I/O with libraries and databases
+- spatial indexes created on-the-fly to scale up geometrical predicates (intersects) and operations (intersection), and selections (nearest feature)
+- simple and relatively small API
+- functions/methods start with `st_`, as in 
+```{r example,echo=TRUE}
+st_is_simple(st_point(0:1))
+```
+
+## `sf` & `tidyverse`
+
+- `sf` spatial objects are `data.frame`s (or `tibble`s)
+- you can always un-`sf`, and work with `tbl_df` or `data.frame` having an `sfc` list-column
+- `sf` methods for `filter`, `arrange`, `distinct`, `group_by`, `ungroup`, `mutate`, `select` have sticky geometry 
+- `st_join` joins tables based on a spatial predicate, or user-defined function
+-  `summarise` unions geometry by group (or altogether)
+
+<img src="summ.png" width="800" />
+
+```
+
+-------
+```{r tidy1, echo = TRUE}
+suppressPackageStartupMessages(library(dplyr))
+gpkg = system.file("gpkg/nc.gpkg", package="sf")
+options(pillar.sigfig = 3)
+read_sf(gpkg) %>% select(1:3, 12)
+```
+
+-------
+```{r tidy2, echo = TRUE}
+read_sf(gpkg) %>% select(1:4,12) %>% st_transform(2264) # NC state plane, us foot
+```
+
+## `geom_sf`
+
+```{r tidy3, echo = TRUE, fig.height=3}
+library(ggplot2) # install_github("tidyverse/ggplot2")
+nc <- read_sf(gpkg) %>% st_transform(2264)
+ggplot() + geom_sf(data = nc) + aes(fill = BIR74) +
+  theme(panel.grid.major = element_line(color = "white")) +
+  scale_fill_gradientn(colors = sf.colors(20))
+```
+
+-------
+```{r tidy4, echo = TRUE}
+library(tidyr)
+nc2 <- nc %>% select(SID74, SID79) %>% gather(VAR, SID, -geom)
+ggplot() + geom_sf(data = nc2, aes(fill = SID)) + facet_wrap(~VAR, ncol = 1) +
+  scale_y_continuous(breaks = 34:36) +
+  scale_fill_gradientn(colors = sf.colors(20)) +
+  theme(panel.grid.major = element_line(color = "white"))
+```
+
+-------
+```{r mapview, echo = TRUE}
+suppressPackageStartupMessages(library(mapview))
+nc %>% mapview(zcol = "BIR74", legend = TRUE, col.regions = sf.colors)
+```
+
+## quantities
+
+```{r, eval=TRUE, echo = TRUE}
+library(sf)
+library(units)
+
+pts = rbind(c(0,80), c(120,80), c(240,80), c(0,80))
+pol = st_sfc(st_polygon(list(pts)), crs = "+proj=longlat")
+
+pol %>% st_area %>% set_units(km^2)
+
+# Equidistant Cylindrical (Plate Carrée):
+pol %>% st_transform("+proj=eqc") %>% st_area
+pol %>% st_set_crs(NA) %>% st_area
+
+pts =  st_sfc(st_point(c(0,90)), st_point(c(0,70)), st_point(c(60,70)), 
+              crs = "+proj=longlat")
+st_distance(pol, pts) %>% set_units(km)
+```
+
+## Raster data, data cubes
+
+- raster data don't fit easily in the simple feature framework: is a raster pixel a point, or a small polygon, or some kind of convolution centered over the pixel center?
+- raster data come up often for continuous phenomena, when the "thing"-ness of features doesn't work out (well): is a pixel a thing? is a raster a thing? does the raster contain a thing?
+- data (hyper) cubes generalize raster data:
+    - multiple layers (time, spectral bands)
+    - time _and_ bands (4D)
+    - time _and_ bands _and_ sensor (5D)
+    - time series for points (e.g. hourly PM10 for a set of sensors)
+- data cubes are fashionable but not well defined; watch out for opportunistic definitions.
+
+Data cubes are a more general concept than raster data, e.g.
+
+- number of healthy and ill pesons by: region, year, age class
+    
+## What about gridded / raster data in R?
+
+- package `raster` is powerful, and works well with pipes
+- simple features don't scale for raster / imagery data
+- (long) time series on features do neither
+
+Package `github.com/r-spatial/stars` for:
+
+- raster and vector data cubes (arrays)
+- take on certain raster limitations: 
+    - 4D+ rasters (band, time)
+    - data sets larger than local disk
+- non-raster array data, such as O-D matrix by time and age class   
+- R Consortium funded project, planned to finish 2018 Q3/4
+
+-------
+
+```{r,eval=TRUE,echo=TRUE,fig.width=5,fig.height=3.5}
+library(stars)
+# http://github.com/r-spatial/stars ; also on CRAN
+tif = system.file("tif/L7_ETMs.tif", package = "stars")
+plot(read_stars(tif), main = paste("Band", 1:6), col = grey(1:9/10))
+```
+
+-----
+<blockquote class="twitter-tweet" data-lang="en"><p lang="en" dir="ltr">My first Sentinel-5P plot with R pkg stars, right before the stars summit with <a href="https://twitter.com/mdsumner?ref_src=twsrc%5Etfw">@mdsumner</a> tomorrow! <a href="https://t.co/uR9mooGbGE">pic.twitter.com/uR9mooGbGE</a></p>&mdash; Edzer Pebesma (@edzerpebesma) <a href="https://twitter.com/edzerpebesma/status/1019326071848820736?ref_src=twsrc%5Etfw">July 17, 2018</a></blockquote>
+<script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+
+----
+
+<img src="nit.png" width="600" />
+
+----
+
+```{r eval=FALSE, echo=TRUE}
+library(stars)
+lat = read_stars('HDF5:"S5P_NRTI_L2__NO2_....nc"://PRODUCT/latitude')
+lon = read_stars('HDF5:"S5P_NRTI_L2__NO2_....nc"://PRODUCT/longitude')
+nit = read_stars('..nc"://PRODUCT/SUPPORT_DATA/DETAILED_RESULTS/nitrogendioxide_summed_total_column')
+lat # prints:
+# stars object with 2 dimensions and 1 attribute
+# attribute(s):
+#    latitude     
+#  Min.   :28.36  
+#  1st Qu.:36.93  
+#  Median :41.25  
+#  Mean   :41.26  
+#  3rd Qu.:45.57  
+#  Max.   :51.47  
+# dimension(s):
+#   from  to offset delta refsys point values
+# x    1 450     NA    NA     NA    NA   NULL
+# y    1 278     NA    NA     NA    NA   NULL
+
+nit[[1]][nit[[1]] > 9e+36] = NA # mask missing values
+
+ll = c(lon, lat)
+nit.sf = st_as_sf(nit, longlat = ll, as_points = TRUE)
+plot(nit.sf, reset = FALSE)
+library(rnaturalearth)
+plot(st_geometry(ne_countries(scale = "medium", returnclass="sf")), 
+    add = TRUE, border = 'grey')
+```
+
+## Conclusions
+
+- `sf` provides tidy spatial analysis, for vector data
+- there are 6 package vignettes for further reading
+
+Work in progress:
+
+> - tidy raster data and space/time array data
+
+Thanks to:
+
+> - the `#rspatial` community
+> - R Consortium for funding sf and stars
+
+Further reading:
+
+Edzer Pebesma, 2018. Simple Features for R: Standardized Support for Spatial Vector Data.
+The R Journal (2018) 10:1, pages 439-446.
+https://journal.r-project.org/archive/2018/RJ-2018-009/index.html
+
+https://www.r-spatial.org/ for stars blogs, and many other things (contributions welcome!)
+
+<!--
+```{r w, echo = FALSE, fig.width = 5, fig.height = 2.5}
+library(sf)
+data(wrld_simpl, package = "maptools")
+w = st_as_sf(wrld_simpl)
+plot(w[1])
+```
+## `sfc` and `sf` objects
+
+How do we maintain feature sets, i.e. collections of records with geometries and other properties?
+
+- `sfg` objects hold a single feature's geometry
+- `sfc` objects are list-columns with `sfg` geometries; they have attributes `bbox`, `crs` and `precision` 
+- `sf` are `data.frame` or `tbl_df` with a `sfc` list-column; they have attributes `sf_column` and `agr`
+
+-->
