@@ -50,7 +50,7 @@ ggplot() + geom_sf(data = nc2, aes(fill = SID)) + facet_wrap(~VAR, ncol = 1)
 
 > - Why raster data?
     * variables that vary _continuously_ over space (time) can be represented more naturally, by regular sampling (think: images)
-    * Earth Observation data (visible: land, ocean; temperature; radar; atmospheric composition) now come down, freely, in Copernicus now with [150 Tb/day](https://twitter.com/AschbacherJosef/status/1081277761430401024)
+    * Earth Observation data (visible: land, ocean; temperature; radar; atmospheric composition) come down, freely, in Copernicus now with [150 Tb/day](https://twitter.com/AschbacherJosef/status/1081277761430401024)
     * Climate model data, also free, is large; CMIP6 will generate 15-30 Pb
 
 ---
@@ -84,9 +84,9 @@ Data cubes are array data where values (or records) are given for each combinati
 
 `dplyr::tbl_cube` has some further support
 
-* list of `base::array`s with measurements
+* _list_ of `base::array`s with measurements
+* this mimics heterogeneous array records
 * list of vectors with dimension values
-* mimics heterogeneous array records
 * allows for e.g. `Date` or `POSIXct` dimension values
 * allows for `filter` on array dimensions, and `group_by` aggregations
 * no support for dimension list-vectors (e.g., `sfc`)
@@ -96,19 +96,19 @@ Data cubes are array data where values (or records) are given for each combinati
 
 `stars` data cubes have as special case
 
-* Raster data cubes, where x and y take a spatial dimension, (raster data)
-* Vector data cubes,  where a set of feature geometries (points, lines, polygons) form the values of (at least) one dimension
+* **Raster data cubes**, where x and y take a spatial dimension, and
+* **Vector data cubes**,  where a set of feature geometries (points, lines, polygons) form the values of (at least) one dimension
 
 and further
 
-* follow `tbl_cube`, is a list of arrays and a set of dimensions
+* follow `tbl_cube`: a list of arrays and a set of dimensions
 * have a dimensions table with 
     * dimensions as regular intervals (offset, cellsize)
     * dimensions as values (e.g. dates, also feature geometries) 
     * measurement `units`, coordinate reference systems (PROJ)
 * read and write any format supported by GDAL
 * can read (directly) netcdf
-* supports out-of-core and  (`stars_proxy`)
+* supports out-of-core (`stars_proxy`), and
 * will support cloud processing 
 
 ----
@@ -130,7 +130,7 @@ s2 = paste0("SENTINEL2_L1C:/vsizip/", granule, "/S2A_MSIL1C_20180220T105051_N020
 ```{r echo=TRUE}
 r = read_stars(s2, proxy = TRUE)
 dim(r)
-plot(r, main = )
+plot(r)
 ```
 
 ----
@@ -154,17 +154,18 @@ Data cube _view_
 
 * dimension settings are no longer derived from imagery, but set independently
 * imagery is resampled on-the-fly to match the cube dimensions
-* allows integrating non-aligned times, geometries, and coordinate reference systems (different sensors, or e.g. UTM zones for Sentinel2)
+* allows integrating non-aligned time series, geometries, and coordinate reference systems (different sensors, or e.g. UTM zones for Sentinel2)
 * largely inspired by Google Earth Engine
 
-## Beyond sf and stars: 1
+## None-data cube extensions
 
-Exciting areas, so far barely touched upon in tidyverse context:
-
+* spatio-temporal events (point patterns)
 * spatial networks, routing (tidygraph)
 * movement data (trajectories)
 
-----
+## Hurricane dataset
+
+https://www.nhc.noaa.gov/data/#hurdat
 
 ```{r}
 load("../../sdsr/hurricane/.RData")
@@ -174,10 +175,10 @@ ggplot() + geom_sf(data = sf, aes(col = year))
 
 ----
 
-```{r}
+```{r fig.width=10,fig.height=4.5}
 sf$year_grp = cut(sf$year, quantile(sf$year, (0:10)/10), 
     dig.lab=4, include.lowest = TRUE)
-ggplot() + geom_sf(data = sf, aes(col = year)) + facet_wrap(~year_grp)
+ggplot() + geom_sf(data = sf) + facet_wrap(~year_grp)
 ```
 
 ---
