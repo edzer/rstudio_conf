@@ -18,12 +18,15 @@ knitr::opts_chunk$set(echo = FALSE, collapse = TRUE)
 <img src="sf.jpg" width="760" />
 by [\@allison_horst](https://twitter.com/allison_horst/status/1071456081308614656)
 
-## The good news
+## The good news {.build}
 
 * we've seen a strong uptake of `sf`, by both users and developers
 * we improved interoperability with spatial databases, geojson etc., also of coordinate reference system handling (PROJ)
 * spatial indexes are computed on-the-fly e.g. by `st_intersects`, `st_intersection` etc.
 * `geom_sf` is now in `ggplot2`, and takes care of (re)projecting incompatible layers
+* attribute-geometry relationships:
+
+<img src="landuse.png" width="700" /> 
 
 ---
 
@@ -52,6 +55,7 @@ ggplot() + geom_sf(data = nc2, aes(fill = SID)) + facet_wrap(~VAR, ncol = 1)
     * variables that vary _continuously_ over space (time) can be represented more naturally, by regular sampling (think: images)
     * Earth Observation data (visible: land, ocean; temperature; radar; atmospheric composition) come down, freely, in Copernicus now with [150 Tb/day](https://twitter.com/AschbacherJosef/status/1081277761430401024)
     * Climate model data, also free, is large; CMIP6 will generate 15-30 Pb
+    * (numerous other sources)
 
 ---
 
@@ -65,7 +69,7 @@ Data cubes are array data where values (or records) are given for each combinati
 
 * sales by product, store, and week
 * population by gender, age class, region, and census round,
-* temperation by x, y, z coordinate and time
+* temperature by x-, y-, z-coordinate and time
 * screen pixel color as a function of row, column and time
 * forecast by time-of-forcast, time-to-forecast (and variable, x, y, and z)
 
@@ -187,12 +191,12 @@ Cloud proxy:
 * proxy objects describe it
 * only the data viewed, or downloaded, is computed/retrieved
 
-Data cube _view_
+Data cube _view_:
 
 * dimension settings are no longer derived from imagery, but set independently
 * imagery is resampled on-the-fly to match the cube dimensions
 * allows integrating non-aligned time series, geometries, and coordinate reference systems (different sensors, or e.g. UTM zones for Sentinel2)
-* largely inspired by Google Earth Engine
+* largely inspired and pioneered by [Google Earth Engine](https://earthengine.google.com)
 
 ## None-data cube extensions
 
@@ -239,8 +243,9 @@ ggplot() + geom_stars(data = f) + #coord_equal() +
 * Spatial data science is an exciting field, full with data, maps, challenges, and tidyverse extensions
 * With `sf` we extended tables to spatial tables
 * with `stars` we extend that to raster and vector data cubes, including spatial time series as special case
-* `stars` can do out-of-core raster, moving to cloud rasters processing
-* we can still analyse big image collections _interactively_ when we _resample_
+* `stars` can do out-of-core raster, is lazy, will address cloud rasters processing
+* we can analyse big image collections _interactively_ only when we _downsample_
 * read more about this in the _Spatial Data Science_ upcoming book:  https://www.r-spatial.org/book/
+* slides link: @edzerpebesma
 
 > - **Spatial Birds-of-Feather meeting: Tomorrow, 8 a.m., breakfast**
