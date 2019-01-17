@@ -1,0 +1,208 @@
+---
+title: "Spatial Data Science in the Tidyverse"
+author: "Edzer Pebesma, Michael Sumner, Etienne Racine"
+date: "Jan 17, 2019"
+output:
+  ioslides_presentation:
+    css: pres.css  
+    smaller: true
+  slidy_presentation: default
+  beamer_presentation: default
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, collapse = TRUE)
+```
+
+-----
+
+<img src="sf.jpg" width="760" />
+by [\@allison_horst](https://twitter.com/allison_horst/status/1071456081308614656)
+
+## The good news
+
+* we've seen a strong uptake of `sf`, by both users and developers
+* we improved interoperability with spatial databases, geojson etc., also of coordinate reference system handling (PROJ)
+* spatial indexes are computed on-the-fly e.g. by `st_intersects`, `st_intersection` etc.
+* `geom_sf` is now in `ggplot2`, and takes care of (re)projecting incompatible layers
+
+---
+
+```{r}
+suppressPackageStartupMessages(library(sf))
+suppressPackageStartupMessages(library(tidyverse))
+```
+
+
+```{r echo=TRUE}
+suppressPackageStartupMessages(library(tidyverse))
+suppressPackageStartupMessages(library(sf))
+system.file("gpkg/nc.gpkg", package="sf") %>% read_sf -> nc
+nc2 <- nc %>% select(SID74, SID79) %>% gather(VAR, SID, -geom)
+ggplot() + geom_sf(data = nc2, aes(fill = SID)) + facet_wrap(~VAR, ncol = 1)
+```
+
+## What about time, and raster?
+
+* if we have time-dependent data, do we put it over multiple columns? or recycle feature geometries in a long ("tidy") table?
+* (gg)plotting multiple attributes in facets requires recycling of geometries (`tidyr::gather`)
+* `sf` has no raster support, no solid vector $\leftrightarrow$ raster integration
+* you could emulate them, but that won't bring you far
+
+> - Why raster data?
+    * variables that vary _continuously_ over space (time) can be represented more naturally, by regular sampling (think: images)
+    * Earth Observation data (visible: land, ocean; temperature; radar; atmospheric composition) now come down, freely, in Copernicus now with [150 Tb/day](https://twitter.com/AschbacherJosef/status/1081277761430401024)
+    * Climate model data, also free, is large; CMIP6 will generate 15-30 Pb
+
+---
+
+<img src="airq_DutZDDtXgAAGp2y.jpg" width="760" />
+
+[link to tweet](https://twitter.com/Drtitosh/status/1075051950725582848)
+    
+## Data cubes
+
+Data cubes are array data where values (or records) are given for each combination of the dimension values. Examples:
+
+* sales by product, store, and week
+* population by gender, age class, region, and census round,
+* temperation by x, y, z coordinate and time
+* screen pixel color as a function of row, column and time
+* forecast by time-of-forcast, time-to-forecast (and variable, x, y, and z)
+
+> - Why _not_ handle them entirely as tidy (long) tables?
+    * storage, speed, indexes
+
+## support in `base` and `dplyr`
+
+`base::array` has powerfull infrastructure for this:
+
+* `dimnames` to label dimension values (only `character`)
+* `apply`: apply functions to a dimension or sets of dimensions
+* `[` subsetting (slice, crop)
+* `abind::` `abind`, `aperm`, `adrop`
+* arrays are atomic
+
+`dplyr::tbl_cube` has some further support
+
+* list of `base::array`s with measurements
+* list of vectors with dimension values
+* mimics heterogeneous array records
+* allows for e.g. `Date` or `POSIXct` dimension values
+* allows for `filter` on array dimensions, and `group_by` aggregations
+* no support for dimension list-vectors (e.g., `sfc`)
+* no support for _regular_ dimensions
+
+## Raster- and vector data cubes: `stars`
+
+`stars` data cubes have as special case
+
+* Raster data cubes, where x and y take a spatial dimension, (raster data)
+* Vector data cubes,  where a set of feature geometries (points, lines, polygons) form the values of (at least) one dimension
+
+and further
+
+* follow `tbl_cube`, is a list of arrays and a set of dimensions
+* have a dimensions table with 
+    * dimensions as regular intervals (offset, cellsize)
+    * dimensions as values (e.g. dates, also feature geometries) 
+    * measurement `units`, coordinate reference systems (PROJ)
+* read and write any format supported by GDAL
+* can read (directly) netcdf
+* supports out-of-core and  (`stars_proxy`)
+* will support cloud processing 
+
+----
+```{r echo = TRUE}
+suppressPackageStartupMessages(library(stars))
+library(viridis)
+system.file("tif/L7_ETMs.tif", package = "stars") %>% read_stars() -> x
+ggplot() + geom_stars(data = x) + coord_equal() + 
+    facet_wrap(~band) + theme_void() + scale_fill_viridis() +
+    scale_x_discrete(expand=c(0,0)) + scale_y_discrete(expand=c(0,0))
+```
+
+----
+
+```{r}
+granule = system.file("sentinel/S2A_MSIL1C_20180220T105051_N0206_R051_T32ULE_20180221T134037.zip", package = "starsdata")
+s2 = paste0("SENTINEL2_L1C:/vsizip/", granule, "/S2A_MSIL1C_20180220T105051_N0206_R051_T32ULE_20180221T134037.SAFE/MTD_MSIL1C.xml:10m:EPSG_32632")
+```
+```{r echo=TRUE}
+r = read_stars(s2, proxy = TRUE)
+dim(r)
+plot(r, main = )
+```
+
+----
+
+```{r echo=TRUE}
+# S2 10m: band 4: near infrared, band 1: red.
+ndvi = function(x) (x[4]-x[1])/(x[4] + x[1])
+system.time(s2.ndvi <- st_apply(r, c("x", "y"), ndvi))
+plot(s2.ndvi) # modifies execution order: reads downsampled, computes ndvi, plots
+```
+
+## Cloud proxies; data cube _views_
+
+Cloud proxy: 
+
+* the actual imagery is in the cloud
+* proxy objects describe it
+* only the data viewed, or downloaded, is computed/retrieved
+
+Data cube _view_
+
+* dimension settings are no longer derived from imagery, but set independently
+* imagery is resampled on-the-fly to match the cube dimensions
+* allows integrating non-aligned times, geometries, and coordinate reference systems (different sensors, or e.g. UTM zones for Sentinel2)
+* largely inspired by Google Earth Engine
+
+## Beyond sf and stars: 1
+
+Exciting areas, so far barely touched upon in tidyverse context:
+
+* spatial networks, routing (tidygraph)
+* movement data (trajectories)
+
+----
+
+```{r}
+load("../../sdsr/hurricane/.RData")
+#plot(sf["year"], axes = TRUE)
+ggplot() + geom_sf(data = sf, aes(col = year))
+```
+
+----
+
+```{r}
+sf$year_grp = cut(sf$year, quantile(sf$year, (0:10)/10), 
+    dig.lab=4, include.lowest = TRUE)
+ggplot() + geom_sf(data = sf, aes(col = year)) + facet_wrap(~year_grp)
+```
+
+---
+
+```{r echo=FALSE,fig.width=10,fig.height=4.5}
+ggplot() + geom_stars(data = f) + #coord_equal() + 
+    facet_wrap(~year, labeller = lyr) +
+    geom_sf(data = ne, col = '#ff880044') +
+    #xlim(bb[1],bb[3]) + ylim(bb[2], bb[4]) + 
+	  scale_fill_viridis() +
+    scale_x_discrete(expand=c(0,0)) + scale_y_discrete(expand=c(0,0))
+```
+
+* rectilinear long/lat grid such that cells have aproximately constant area
+* constant time intervals
+* $\Rightarrow$ counts are proportional to densities
+* `st_intersects` only counts hits, and ignores length/duration/strength
+
+## Concluding
+
+* Spatial data science is an exciting field, full with data, maps, challenges, and tidyverse extensions
+* With `sf` we extended tables to spatial tables
+* with `stars` we extend that to raster and vector data cubes, including spatial time series as special case
+* `stars` can do out-of-core raster, moving to cloud rasters processing
+* we can still analyse big image collections _interactively_ when we _resample_
+* read more about this in the _Spatial Data Science_ upcoming book:  https://www.r-spatial.org/book/
+
+> - **Spatial Birds-of-Feather meeting: Tomorrow, 8 a.m., breakfast**

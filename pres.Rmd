@@ -1,7 +1,7 @@
 ---
-title: "Tidy Spatial Data Analysis"
+title: "New R spatial packages"
 author: "Edzer Pebesma, @edzerpebesma, github.com/edzer"
-date: "rstudio::conf, Feb 2, 2018"
+date: "GEOSTAT Pruhonice, Aug 19, 2018 (based on: rstudio::conf, 2/2/2018)"
 output:
   ioslides_presentation:
     logo: animation.gif
@@ -19,13 +19,19 @@ knitr::opts_chunk$set(echo = FALSE, collapse = TRUE)
 <img src="10northcarolina-master768.jpg" width="400" /> [NYT](https://www.nytimes.com/2018/01/09/us/north-carolina-gerrymander.html), 2018/1/9
 <img src="2016_election_map.png "        width="400" /> [xkcd.com](https://xkcd.com/1939/)
 
+----
+
+<blockquote class="twitter-tweet" data-lang="en"><p lang="en" dir="ltr">Me, making maps but not really knowing anything about map projections: <a href="https://t.co/IwBiZegxSf">pic.twitter.com/IwBiZegxSf</a></p>&mdash; Julia Silge (@juliasilge) <a href="https://twitter.com/juliasilge/status/1030134567087177728?ref_src=twsrc%5Etfw">August 16, 2018</a></blockquote>
+<script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+
+
 ## Overview
 
 - Spatial data in R
 - Simple features, the `sf` R package
 - Geometrical operations
 - Tidy: `sf`, `dplyr` & `ggplot2`
-- Raster, arrays, spatial data cubes
+- Raster, arrays, spatial data cubes (stars)
 
 ## Some personal context, I
 
@@ -206,7 +212,22 @@ pts =  st_sfc(st_point(c(0,90)), st_point(c(0,70)), st_point(c(60,70)),
 st_distance(pol, pts) %>% set_units(km)
 ```
 
-## What about raster data?
+## Raster data, data cubes
+
+- raster data don't fit easily in the simple feature framework: is a raster pixel a point, or a small polygon, or some kind of convolution centered over the pixel center?
+- raster data come up often for continuous phenomena, when the "thing"-ness of features doesn't work out (well): is a pixel a thing? is a raster a thing? does the raster contain a thing?
+- data (hyper) cubes generalize raster data:
+    - multiple layers (time, spectral bands)
+    - time _and_ bands (4D)
+    - time _and_ bands _and_ sensor (5D)
+    - time series for points (e.g. hourly PM10 for a set of sensors)
+- data cubes are fashionable but not well defined; watch out for opportunistic definitions.
+
+Data cubes are a more general concept than raster data, e.g.
+
+- number of healthy and ill pesons by: region, year, age class
+    
+## What about gridded / raster data in R?
 
 - package `raster` is powerful, and works well with pipes
 - simple features don't scale for raster / imagery data
@@ -228,6 +249,46 @@ library(stars)
 # http://github.com/r-spatial/stars ; also on CRAN
 tif = system.file("tif/L7_ETMs.tif", package = "stars")
 plot(read_stars(tif), main = paste("Band", 1:6), col = grey(1:9/10))
+```
+
+-----
+<blockquote class="twitter-tweet" data-lang="en"><p lang="en" dir="ltr">My first Sentinel-5P plot with R pkg stars, right before the stars summit with <a href="https://twitter.com/mdsumner?ref_src=twsrc%5Etfw">@mdsumner</a> tomorrow! <a href="https://t.co/uR9mooGbGE">pic.twitter.com/uR9mooGbGE</a></p>&mdash; Edzer Pebesma (@edzerpebesma) <a href="https://twitter.com/edzerpebesma/status/1019326071848820736?ref_src=twsrc%5Etfw">July 17, 2018</a></blockquote>
+<script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+
+----
+
+<img src="nit.png" width="600" />
+
+----
+
+```{r eval=FALSE, echo=TRUE}
+library(stars)
+lat = read_stars('HDF5:"S5P_NRTI_L2__NO2_....nc"://PRODUCT/latitude')
+lon = read_stars('HDF5:"S5P_NRTI_L2__NO2_....nc"://PRODUCT/longitude')
+nit = read_stars('..nc"://PRODUCT/SUPPORT_DATA/DETAILED_RESULTS/nitrogendioxide_summed_total_column')
+lat # prints:
+# stars object with 2 dimensions and 1 attribute
+# attribute(s):
+#    latitude     
+#  Min.   :28.36  
+#  1st Qu.:36.93  
+#  Median :41.25  
+#  Mean   :41.26  
+#  3rd Qu.:45.57  
+#  Max.   :51.47  
+# dimension(s):
+#   from  to offset delta refsys point values
+# x    1 450     NA    NA     NA    NA   NULL
+# y    1 278     NA    NA     NA    NA   NULL
+
+nit[[1]][nit[[1]] > 9e+36] = NA # mask missing values
+
+ll = c(lon, lat)
+nit.sf = st_as_sf(nit, longlat = ll, as_points = TRUE)
+plot(nit.sf, reset = FALSE)
+library(rnaturalearth)
+plot(st_geometry(ne_countries(scale = "medium", returnclass="sf")), 
+    add = TRUE, border = 'grey')
 ```
 
 ## Conclusions
